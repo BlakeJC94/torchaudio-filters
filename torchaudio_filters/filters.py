@@ -20,6 +20,9 @@ def _filter_coeffs(
     **kwargs,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     cutoffs = [_normalise_freq(c, sample_rate) for c in cutoffs]
+    # Address DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated
+    if len(cutoffs) == 1:
+        cutoffs = cutoffs[0]
     b, a = signal.butter(order, cutoffs, btype=btype, output="ba", **kwargs)
     return torch.from_numpy(b), torch.from_numpy(a)
 
@@ -33,11 +36,11 @@ class _BaseFilter(nn.Module):
 
     @staticmethod
     def _pad_odd(x, n):
-        left_end = x[..., 0:1]
-        left_ext = x[..., 0:n].flip(dims=(-1,))
+        left_end = x[..., :1]
+        left_ext = x[..., 1:n+1].flip(dims=(-1,))
 
         right_end = x[..., -1:]
-        right_ext = x[..., -(n + 2):-2].flip(dims=(-1,))
+        right_ext = x[..., -(n + 1):-1].flip(dims=(-1,))
 
         return torch.cat(
             (
@@ -58,7 +61,9 @@ class _BaseFilter(nn.Module):
         if self.causal:
             x = lfilter(x, self.a, self.b, clamp=False, batching=True)
         else:
-            x = filtfilt(x, self.a, self.b)
+            # x = filtfilt(x, self.a, self.b)
+            x = lfilter(x, self.a, self.b)
+            x = lfilter(x.flip(dims=(-1,)), self.a, self.b).flip(dims=(-1,))
 
         x = x[..., padlen:-padlen]
         return x * scale
