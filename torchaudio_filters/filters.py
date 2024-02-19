@@ -24,7 +24,7 @@ def _filter_coeffs(
     return torch.from_numpy(b), torch.from_numpy(a)
 
 
-class BaseFilter(nn.Module):
+class _BaseFilter(nn.Module):
     def __init__(self, b, a, causal: bool = False):
         super().__init__()
         self.register_buffer("b", b)
@@ -64,7 +64,7 @@ class BaseFilter(nn.Module):
         return x * scale
 
 
-class LowPass(BaseFilter):
+class LowPass(_BaseFilter):
     def __init__(self, cutoff, sample_rate, order=2, causal=False):
         """Constructor for the LowPass class.
 
@@ -83,7 +83,7 @@ class LowPass(BaseFilter):
         super().__init__(b, a, causal)
 
 
-class HighPass(BaseFilter):
+class HighPass(_BaseFilter):
     def __init__(self, cutoff, sample_rate, order=2, causal=False):
         b, a = _filter_coeffs(
             "highpass",
@@ -94,7 +94,7 @@ class HighPass(BaseFilter):
         super().__init__(b, a, causal)
 
 
-class BandPass(BaseFilter):
+class BandPass(_BaseFilter):
     def __init__(self, cutoff_low, cutoff_high, sample_rate, order=2, causal=False):
         b, a = _filter_coeffs(
             "band",
@@ -105,7 +105,7 @@ class BandPass(BaseFilter):
         super().__init__(b, a, causal)
 
 
-class Notch(BaseFilter):
+class Notch(_BaseFilter):
     def __init__(self, cutoff_low, cutoff_high, sample_rate, order=2, causal=False):
         b, a = _filter_coeffs(
             "bandstop",
