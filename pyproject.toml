@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "torchaudio-filters"
 version = "0.1.0"
-description = ""
+description = "High-pass and low-pass filters implemented as modules with torchaudio"
 authors = ["BlakeJC94 <blakejamescook@gmail.com>"]
 license = "GPLv3"
 readme = "README.md"
