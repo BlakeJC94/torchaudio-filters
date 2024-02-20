@@ -104,7 +104,7 @@ To decrease the edge effect, a wrapper module `Pad` is also provided
 ## Contributing
 Pull requests are most welcome! If there's any questions, open an issue so we can discuss further.
 
-Dependencies and environments are managed with `[poetry](https://python-poetry.org)`. To get started developing for this package:
+Dependencies and environments are managed with [`poetry`](https://python-poetry.org). To get started developing for this package:
 ```
 $ git clone https://github.com/BlakeJC94/torchaudio_filters
 $ cd torchaudio_filters
@@ -114,6 +114,6 @@ $ pytest
 
 Branch `main` should be stable, all the latest changes will go onto the `dev` branch before being released on `main`.
 
-* Code is tested with `[pytest](https://docs.pytest.org)`
-* Code is styled using `[black](https://black.readthedocs.io)`
-* Code is linted with `[ruff](https://beta.ruff.rs)`
+* Code is tested with [`pytest`](https://docs.pytest.org)
+* Code is styled using [`black`](https://black.readthedocs.io)
+* Code is linted with [`ruff`](https://beta.ruff.rs)
