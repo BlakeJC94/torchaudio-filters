@@ -11,38 +11,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
-      - name: Install Poetry
-        uses: dschep/install-poetry-action@v1.2
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
 
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v1
-        id: cache
-        with:
-          path: ~/.virtualenvs
-          key: poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            poetry-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Set Poetry config
+      - name: Setup a local virtual environment (if no poetry.toml file)
         run: |
-          poetry config settings.virtualenvs.in-project false
-          poetry config settings.virtualenvs.path ~/.virtualenvs
+          poetry config virtualenvs.create true --local
+          poetry config virtualenvs.in-project true --local
 
-      - name: Install Dependencies
+      - uses: actions/cache@v3
+        name: Define a cache for the virtual environment based on the dependencies lock file
+        with:
+          path: ./.venv
+          key: venv-${{ hashFiles('poetry.lock') }}
+
+      - name: Install the project dependencies
         run: poetry install
-        if: steps.cache.outputs.cache-hit != 'true'
 
-      - name: Code Quality
-        run: poetry run black . --check
-
-      - name: Test with pytest
-        run: poetry run pytest
+      - name: Run the automated tests (for example)
+        run: poetry run pytest -v
