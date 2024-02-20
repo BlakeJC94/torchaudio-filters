@@ -9,10 +9,10 @@ from .pad import Pad
 
 
 class _BaseFilter(nn.Module):
-    def __init__(self, b: torch.Tensor, a: torch.Tensor):
+    def __init__(self, b: torch.Tensor, a: torch.Tensor, dtype=torch.float32):
         super().__init__()
-        self.register_buffer("b", b)
-        self.register_buffer("a", a)
+        self.register_buffer("b", b.type(dtype))
+        self.register_buffer("a", a.type(dtype))
 
     @staticmethod
     def get_filter_coeffs(

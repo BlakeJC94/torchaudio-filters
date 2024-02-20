@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "torchaudio-filters"
-version = "0.1.0"
+version = "0.2.0"
 description = "High-pass and low-pass filters implemented as modules with torchaudio"
 authors = ["BlakeJC94 <blakejamescook@gmail.com>"]
 license = "GPLv3"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 torchaudio = "^2.0.0"
 scipy = "^1.12.0"
 

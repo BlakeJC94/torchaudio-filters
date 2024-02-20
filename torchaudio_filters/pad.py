@@ -12,7 +12,7 @@ class Pad(nn.Module):
         self,
         module: nn.Module,
         padlen: int,
-        mode: PadMode = "even",
+        mode: PadMode = "odd",
         val: float = 0.0,
     ):
         super().__init__()
