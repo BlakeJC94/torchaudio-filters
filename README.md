@@ -6,6 +6,9 @@ This small package offers a simple API to implement basic butterworth filters in
 Aims to maintain consistency with the PyTorch API (e.g. behaves similarly to
 `torchaudio.transforms.Spectrogram`) and uses `torchaudio.functional.filtfilt` under the hood.
 
+Output has been verified to generally match the `scipy.signal` output up to `1e-2` units of
+precision in testing.
+
 ```python
 >>> from torch import nn
 >>> from torchaudio_filters import LowPass, Pad
