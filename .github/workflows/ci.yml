@@ -37,5 +37,8 @@ jobs:
       - name: Install the project dependencies
         run: poetry install
 
+      - name: Run the formatter
+        run: poetry run black . --check
+
       - name: Run the automated tests (for example)
         run: poetry run pytest -v
