@@ -76,6 +76,7 @@ Plotting these results:
 >>> ax3.plot(t, x_bp)
 >>> ax3.set_title('Notch / BandPass')
 ```
+![fig00](https://github.com/BlakeJC94/torchaudio-filters/assets/16640474/189b77c4-7e65-44c3-8928-519874d918ae)
 
 To decrease the edge effect, a wrapper module `Pad` is also provided
 ```python
@@ -94,6 +95,7 @@ To decrease the edge effect, a wrapper module `Pad` is also provided
 >>> ax2.set_title('Without pad / With pad')
 >>> plt.show()
 ```
+![fig01](https://github.com/BlakeJC94/torchaudio-filters/assets/16640474/51e4e7ba-927a-4d83-98cc-5f1eacf7be9d)
 
 
 ## Contributing
