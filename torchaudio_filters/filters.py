@@ -5,6 +5,7 @@ from scipy import signal
 from torch import nn
 from torchaudio.functional import filtfilt
 
+from .pad import Pad
 
 
 class _BaseFilter(nn.Module):
@@ -12,23 +13,6 @@ class _BaseFilter(nn.Module):
         super().__init__()
         self.register_buffer("b", b)
         self.register_buffer("a", a)
-
-    @staticmethod
-    def odd_ext(x, n):
-        left_end = x[..., :1]
-        left_ext = x[..., 1:n+1].flip(dims=(-1,))
-
-        right_end = x[..., -1:]
-        right_ext = x[..., -(n + 1):-1].flip(dims=(-1,))
-
-        return torch.cat(
-            (
-                2 * left_end - left_ext,
-                x,
-                2 * right_end - right_ext,
-            ),
-            dim=-1,
-        )
 
     @staticmethod
     def get_filter_coeffs(
@@ -46,7 +30,7 @@ class _BaseFilter(nn.Module):
         x = x / scale
 
         padlen = 3 * max(len(self.a), len(self.b))
-        x = self.odd_ext(x, padlen)
+        x = Pad.odd_ext(x, padlen)
 
         x = filtfilt(x, self.a, self.b)
 
