@@ -3,28 +3,8 @@ from typing import List, Tuple
 import torch
 from scipy import signal
 from torch import nn
-from torchaudio.functional import filtfilt, lfilter
+from torchaudio.functional import filtfilt
 
-
-# Probably not needed from scipy>=1.2.0
-def _normalise_freq(frequency: float, sample_rate: float) -> float:
-    """Normalise frequency to Nyquist Frequency (Fs/2)."""
-    return 2.0 * frequency / sample_rate
-
-
-def _filter_coeffs(
-    btype: str,
-    order: int,
-    cutoffs: List[float],
-    sample_rate: float,
-    **kwargs,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    cutoffs = [_normalise_freq(c, sample_rate) for c in cutoffs]
-    # Address DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated
-    if len(cutoffs) == 1:
-        cutoffs = cutoffs[0]
-    b, a = signal.butter(order, cutoffs, btype=btype, output="ba", **kwargs)
-    return torch.from_numpy(b), torch.from_numpy(a)
 
 
 class _BaseFilter(nn.Module):
@@ -34,7 +14,7 @@ class _BaseFilter(nn.Module):
         self.register_buffer("a", a)
 
     @staticmethod
-    def _odd_ext(x, n):
+    def odd_ext(x, n):
         left_end = x[..., :1]
         left_ext = x[..., 1:n+1].flip(dims=(-1,))
 
@@ -50,12 +30,23 @@ class _BaseFilter(nn.Module):
             dim=-1,
         )
 
+    @staticmethod
+    def get_filter_coeffs(
+        order: int,
+        cutoffs: List[float],
+        btype: str,
+        sample_rate: float,
+        **kwargs,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        b, a = signal.butter(order, cutoffs, btype=btype, output="ba", fs=sample_rate)
+        return torch.from_numpy(b), torch.from_numpy(a)
+
     def forward(self, x):
         scale = torch.max(torch.abs(x), dim=-1).values.unsqueeze(-1)
         x = x / scale
 
         padlen = 3 * max(len(self.a), len(self.b))
-        x = self._odd_ext(x, padlen)
+        x = self.odd_ext(x, padlen)
 
         x = filtfilt(x, self.a, self.b)
 
@@ -72,10 +63,10 @@ class LowPass(_BaseFilter):
             sample_rate: Input sampling rate in hertz.
             order: Degree of polynomial in filter (default = 2)
         """
-        b, a = _filter_coeffs(
-            "lowpass",
+        b, a = self.get_filter_coeffs(
             order,
-            [cutoff],
+            cutoff,
+            "lowpass",
             sample_rate,
         )
         super().__init__(b, a)
@@ -83,10 +74,10 @@ class LowPass(_BaseFilter):
 
 class HighPass(_BaseFilter):
     def __init__(self, cutoff, sample_rate, order=2):
-        b, a = _filter_coeffs(
-            "highpass",
+        b, a = self.get_filter_coeffs(
             order,
-            [cutoff],
+            cutoff,
+            "highpass",
             sample_rate,
         )
         super().__init__(b, a)
@@ -94,10 +85,10 @@ class HighPass(_BaseFilter):
 
 class BandPass(_BaseFilter):
     def __init__(self, cutoff_low, cutoff_high, sample_rate, order=2):
-        b, a = _filter_coeffs(
-            "band",
+        b, a = self.get_filter_coeffs(
             order,
-            [cutoff_low, cutoff_high],
+            (cutoff_low, cutoff_high),
+            "band",
             sample_rate,
         )
         super().__init__(b, a)
@@ -105,10 +96,10 @@ class BandPass(_BaseFilter):
 
 class Notch(_BaseFilter):
     def __init__(self, cutoff_low, cutoff_high, sample_rate, order=2):
-        b, a = _filter_coeffs(
-            "bandstop",
+        b, a = self.get_filter_coeffs(
             order,
-            [cutoff_low, cutoff_high],
+            (cutoff_low, cutoff_high),
+            "bandstop",
             sample_rate,
         )
         super().__init__(b, a)
