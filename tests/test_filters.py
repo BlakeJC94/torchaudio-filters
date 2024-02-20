@@ -8,8 +8,6 @@ from scipy import signal
 from torchaudio_filters import LowPass, HighPass, BandPass, Notch
 
 
-import plotly.express as px
-
 
 @pytest.fixture
 def sample_rate() -> float:
@@ -86,35 +84,34 @@ def calculate_expected_output(x_in, transform):
         signal.filtfilt(
             transform.b,
             transform.a,
-            x_in,
+            x_in.numpy(),
             axis=-1,
-            padtype='odd',
         ).copy()
     )
 
-import pandas as pd
+
+
+
 @pytest.mark.parametrize("cutoff", [10, 50, 120])
 def test_low_pass(cutoff, sample_rate, data, frequencies):
     ## Assemble
     transform = LowPass(cutoff, sample_rate)
 
+
     ## Act
     out = transform(data)
 
     ## Assert
+    # Check that output shape matches the input shape
     assert out.shape == data.shape
 
-
+    # Check that non-edge values match up with the scipy implementation
     expected_out = calculate_expected_output(data, transform)
-    foo = pd.DataFrame(
-        dict(
-            a=data[0, 0, :],
-            b=out[0, 0, :],
-            c=expected_out[0, 0, :],
-        )
-    )
-    breakpoint()
+    outer_padlen = int(sample_rate / 4)
+    center_slice = slice(outer_padlen, -outer_padlen)
+    assert torch.abs(out[..., center_slice] - expected_out[..., center_slice]).max() < 1e-4
 
+    # Check that correct frequencies were attenuated
     fft_diff, fft_freqs = calculate_relative_power_diffs(sample_rate, data, out)
     for freq in frequencies:
         freq_ind = np.argmin(np.abs(fft_freqs - freq))
