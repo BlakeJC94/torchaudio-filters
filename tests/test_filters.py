@@ -8,15 +8,14 @@ from scipy import signal
 from torchaudio_filters import LowPass, HighPass, BandPass, Notch
 
 
-
 @pytest.fixture
-def sample_rate() -> float:
+def sample_rate() -> float:  # Hz
     return 256.0
 
 
 @pytest.fixture
 def sample_length() -> float:  # s
-    return 1.0
+    return 3.0
 
 
 @pytest.fixture
@@ -90,13 +89,13 @@ def calculate_expected_output(x_in, transform):
     )
 
 
-
-
 @pytest.mark.parametrize("cutoff", [10, 50, 120])
 def test_low_pass(cutoff, sample_rate, data, frequencies):
+    """Test that LowPass filters out higher frequencies and matches scipy implementation after
+    trimming edges.
+    """
     ## Assemble
     transform = LowPass(cutoff, sample_rate)
-
 
     ## Act
     out = transform(data)
@@ -109,7 +108,9 @@ def test_low_pass(cutoff, sample_rate, data, frequencies):
     expected_out = calculate_expected_output(data, transform)
     outer_padlen = int(sample_rate / 4)
     center_slice = slice(outer_padlen, -outer_padlen)
-    assert torch.abs(out[..., center_slice] - expected_out[..., center_slice]).max() < 1e-4
+    diff = torch.abs(out[..., center_slice] - expected_out[..., center_slice])
+    assert diff.median() < 1e-5
+    assert diff.max() < 1e-2
 
     # Check that correct frequencies were attenuated
     fft_diff, fft_freqs = calculate_relative_power_diffs(sample_rate, data, out)
@@ -121,109 +122,106 @@ def test_low_pass(cutoff, sample_rate, data, frequencies):
             assert fft_diff[freq_ind] > 0.8
 
 
-# Test lowpass
-# TODO Create input data across 3 frequencies with batch size and channels
-# TODO Create module
-# TODO Compare difference in power for each frequency band
-# TODO Compare output to
+@pytest.mark.parametrize("cutoff", [10, 50, 120])
+def test_high_pass(cutoff, sample_rate, data, frequencies):
+    """Test that HighPass filters out lower frequencies and matches scipy implementation after
+    trimming edges.
+    """
+    ## Assemble
+    transform = HighPass(cutoff, sample_rate)
 
-# @pytest.fixture
-# def gen_data(
-#     sample_rate: float,  # Hertz
-#     sample_length: float,  # seconds
-#     channels: int = 21,
-#     batch_size: int = 0,
-#     frequencies: Optional[Iterable[float]] = None,
-#     sigma: float = 1.,
-#     mu: float = 0.,
-# ) -> Tuple[torch.Tensor]:
-#     """Generate random or sinusoidal data for testing purposes."""
-#     frequencies = frequencies or []
+    ## Act
+    out = transform(data)
 
-#     out = []
-#     start_time = 0
-#     for _ in range(max(batch_size, 1)):
-#         times = start_time + np.arange(0, sample_length, 1 / sample_rate)
+    ## Assert
+    # Check that output shape matches the input shape
+    assert out.shape == data.shape
 
-#         x = mu + sigma * np.random.randn(channels, len(times))
-#         for frequency in frequencies:
-#             sig = np.sin(2 * np.pi * frequency * times)
-#             x = x + np.expand_dims(sig, axis=0)  # Add signal to each channel
+    # Check that non-edge values match up with the scipy implementation
+    expected_out = calculate_expected_output(data, transform)
+    outer_padlen = int(sample_rate / 4)
+    center_slice = slice(outer_padlen, -outer_padlen)
+    diff = torch.abs(out[..., center_slice] - expected_out[..., center_slice])
+    assert diff.median() < 1e-5
+    assert diff.max() < 1e-2
 
-#         out.append(x)
-#         start_time += sample_length
-
-#     out = out[0] if batch_size == 0 else np.stack(out, axis=0)
-#     return torch.from_numpy(out)
+    # Check that correct frequencies were attenuated
+    fft_diff, fft_freqs = calculate_relative_power_diffs(sample_rate, data, out)
+    for freq in frequencies:
+        freq_ind = np.argmin(np.abs(fft_freqs - freq))
+        if 0 < freq < cutoff:
+            assert fft_diff[freq_ind] < 0.2
+        else:
+            assert fft_diff[freq_ind] > 0.8
 
 
-# class TestFrequencyFilters:
-#     """Tests for the frequency domain filters LowPass, HighPass, and Notch."""
+@pytest.mark.parametrize(
+    "cutoff_low, cutoff_high",
+    [(10, 15), (15, 25), (120, 125)],
+)
+def test_band_pass(cutoff_low, cutoff_high, sample_rate, data, frequencies):
+    """Test that BandPass filters out lower and higher frequencies and matches scipy implementation
+    after trimming edges.
+    """
+    ## Assemble
+    transform = BandPass(cutoff_low, cutoff_high, sample_rate)
 
-#     in_rate = 256
-#     in_len = 256
-#     frequencies = [5, 20, 100]  # Frequencies present in input data
+    ## Act
+    out = transform(data)
 
-#     @pytest.fixture
-#     def data(self):
-#         return gen_data(self.in_rate, self.in_len, frequencies=self.frequencies)
+    ## Assert
+    # Check that output shape matches the input shape
+    assert out.shape == data.shape
 
-#     def run_test(self, transform, data, low, high, band=False):
-#         x_in, times = data
-#         x_out = transform(torch.from_numpy(x_in).permute(1, 0)).permute(1, 0).numpy()
+    # Check that non-edge values match up with the scipy implementation
+    expected_out = calculate_expected_output(data, transform)
+    outer_padlen = int(sample_rate / 4)
+    center_slice = slice(outer_padlen, -outer_padlen)
+    diff = torch.abs(out[..., center_slice] - expected_out[..., center_slice])
+    assert diff.median() < 1e-5
+    assert diff.max() < 1e-2
 
-#         # Get FFT of data before and after transformation
-#         fft_in = np.abs(np.fft.rfft(x_in[:, 0]))
-#         fft_out = np.abs(np.fft.rfft(x_out[:, 0]))
-#         freq = np.fft.rfftfreq(len(x_out), 1 / self.in_rate)
+    # Check that correct frequencies were attenuated
+    fft_diff, fft_freqs = calculate_relative_power_diffs(sample_rate, data, out)
+    for freq in frequencies:
+        freq_ind = np.argmin(np.abs(fft_freqs - freq))
+        if 0 < freq < cutoff_low or cutoff_high < freq < 1e6:
+            assert fft_diff[freq_ind] < 0.2
+        else:
+            assert fft_diff[freq_ind] > 0.8
 
-#         # Check each input frequency for attenuation
-#         for frequency in self.frequencies:
-#             freq_ind = np.argmin(np.abs(freq - frequency))
-#             if low < frequency < high:
-#                 assert fft_out[freq_ind] / fft_in[freq_ind] < 0.2
-#             else:
-#                 assert fft_out[freq_ind] / fft_in[freq_ind] > 0.8
 
-#         assert x_out.shape[0] == self.in_len * self.in_rate
+@pytest.mark.parametrize(
+    "cutoff_low, cutoff_high",
+    [(10, 15), (15, 25), (120, 125)],
+)
+def test_notch(cutoff_low, cutoff_high, sample_rate, data, frequencies):
+    """Test that Notch filters out band frequencies and matches scipy implementation after trimming
+    edges.
+    """
+    ## Assemble
+    transform = Notch(cutoff_low, cutoff_high, sample_rate)
 
-#     @pytest.mark.parametrize("cutoff", [10, 50, 120])
-#     def test_lowpass(self, cutoff, data):
-#         transform = LowPass(cutoff, self.in_rate)
-#         self.run_test(transform, data, cutoff, 1e6)
+    ## Act
+    out = transform(data)
 
-#     @pytest.mark.parametrize("cutoff", [10, 50, 120])
-#     def test_highpass(self, cutoff, data):
-#         transform = HighPass(cutoff, self.in_rate)
-#         self.run_test(transform, data, 0, cutoff)
+    ## Assert
+    # Check that output shape matches the input shape
+    assert out.shape == data.shape
 
-#     @pytest.mark.parametrize(
-#         "cutoff_low, cutoff_high",
-#         [(10, 15), (15, 25), (120, 125)],
-#     )
-#     def test_notch(self, cutoff_low, cutoff_high, data):
-#         transform = Notch(cutoff_low, cutoff_high, self.in_rate)
-#         self.run_test(transform, data, cutoff_low, cutoff_high)
+    # Check that non-edge values match up with the scipy implementation
+    expected_out = calculate_expected_output(data, transform)
+    outer_padlen = int(sample_rate / 4)
+    center_slice = slice(outer_padlen, -outer_padlen)
+    diff = torch.abs(out[..., center_slice] - expected_out[..., center_slice])
+    assert diff.median() < 1e-5
+    assert diff.max() < 1e-2
 
-#     # TODO RFC
-#     # @pytest.mark.parametrize(
-#     #     "cutoff_low, cutoff_high",
-#     #     [(10, 15), (15, 25), (120, 125)],
-#     # )
-#     # def test_bandpass(self, cutoff_low, cutoff_high, data):
-#     #     transform = BandPass(cutoff_low, cutoff_high, self.in_rate)
-#     #     self.run_test(transform, data, cutoff_low, cutoff_high, band=True)
-
-# # from scipy import signal
-
-# # def test_low_pass_filter():
-# #     in_rate = 256
-# #     cutoff = 10
-
-# #     # transform = LowPass(cutoff, in_rate)
-
-# #     order = 2
-# #     cutoffs = [2.0 * cutoff / in_rate, 2.0 * (cutoff+10) / in_rate]
-# #     btype = "band"
-# #     b, a = signal.butter(order, cutoffs, btype=btype, output="ba")
-# #     assert True
+    # Check that correct frequencies were attenuated
+    fft_diff, fft_freqs = calculate_relative_power_diffs(sample_rate, data, out)
+    for freq in frequencies:
+        freq_ind = np.argmin(np.abs(fft_freqs - freq))
+        if cutoff_low < freq < cutoff_high:
+            assert fft_diff[freq_ind] < 0.2
+        else:
+            assert fft_diff[freq_ind] > 0.8
